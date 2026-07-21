@@ -2,3 +2,6 @@
 *.png
 db_data/
 *.txt
+
+__pycache__/
+logfile

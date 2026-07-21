@@ -1,70 +1,96 @@
-pip install requests
+"""
+==========================================================================================
+SYSTEM MODULE: FULL-SCALE RELATIONAL LEDGER DATABASE MIGRATION
+BUSINESS PURPOSE: Provisions core banking transaction tables with high precision.
+TARGET ALIGNMENT: Fulfills Vancity Governance and Mastercard Core Platform Mandates.
+==========================================================================================
+"""
 import psycopg2
-import requests
-import json
+import pandas as pd
+from datetime import datetime, timedelta
+import random
 
-def fetch_live_crypto_metrics():
-    """
-    BUSINESS PURPOSE: Programmatically calls public Web3 data infrastructure.
-    Maps to Coinbase & Amazon Mandates: 'Safely ingest high-velocity data streams'
-    """
-    print("Initiating cloud handshake with CoinGecko API network...")
-    # Public endpoint tracking live Bitcoin and Ethereum prices in USD
-    url = "https://coingecko.com"
+def build_institutional_ledger():
+    print("Initiating full-blown enterprise database structure build...")
     
-    try:
-        response = requests.get(url, timeout=10)
-        # Parse raw web text string into an organized business data dictionary
-        market_snapshot = response.json()
-        return market_snapshot
-    except Exception as network_error:
-        print(f"CRITICAL LOSS OF CONNECTION: Cloud API endpoint unreachable: {network_error}")
-        return None
+    # Connect directly to our local Conda trust-auth PostgreSQL server cluster
+    conn = psycopg2.connect(
+        host="localhost",
+        user="postgres",
+        password="",  # Kept blank to match our active trusted Conda server setup
+        port="5432",
+        database="postgres"  # Connect to default DB first to build our custom DB
+    )
+    conn.autocommit = True
+    cursor = conn.cursor()
 
-def process_and_load_to_ledger(data_payload):
+    # Recreate the main financial database framework cleanly
+    cursor.execute("DROP DATABASE IF EXISTS financial_ledger;")
+    cursor.execute("CREATE DATABASE financial_ledger;")
+    cursor.close()
+    conn.close()
+
+    # Connect directly to our fresh new financial database layer
+    ledger_conn = psycopg2.connect(
+        host="localhost",
+        user="postgres",
+        password="",
+        port="5432",
+        database="financial_ledger"
+    )
+    ledger_cursor = ledger_conn.cursor()
+
+    # Define 3-tier normalized relational star schemas (Enforces rigid data integrity)
+    schema_queries = """
+    CREATE TABLE legal_entities (
+        entity_id VARCHAR(50) PRIMARY KEY,
+        corporate_name VARCHAR(150) NOT NULL,
+        jurisdiction_country VARCHAR(10) NOT NULL,
+        risk_tier VARCHAR(10) NOT NULL
+    );
+
+    CREATE TABLE wallets_or_accounts (
+        wallet_hash VARCHAR(64) PRIMARY KEY,
+        entity_id VARCHAR(50) REFERENCES legal_entities(entity_id) ON DELETE CASCADE,
+        asset_class VARCHAR(20) NOT NULL,       
+        currency_ticker VARCHAR(10) NOT NULL,    
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE financial_ledger (
+        transaction_uuid SERIAL PRIMARY KEY,
+        wallet_hash VARCHAR(64) REFERENCES wallets_or_accounts(wallet_hash) ON DELETE CASCADE,
+        transaction_type VARCHAR(20) NOT NULL,  
+        amount_delta NUMERIC(36, 18) NOT NULL,  -- Numeric precision prevents financial rounding leakage
+        fee_charged NUMERIC(18, 4) DEFAULT 0.0000,
+        execution_timestamp TIMESTAMP NOT NULL,
+        clearing_status VARCHAR(20) NOT NULL    
+    );
     """
-    BUSINESS PURPOSE: Parses unstructured web payloads and commits them to the asset database.
+    ledger_cursor.execute(schema_queries)
+    print("SUCCESS: Relational database architecture deployed.")
+
+    # Seed base corporate account profiles required by downstream ingestion scripts
+    ledger_cursor.execute("INSERT INTO legal_entities VALUES ('ENT_001', 'Vancouver Quantitative Crypto Fund', 'CA', 'Tier_1');")
+    ledger_cursor.execute("INSERT INTO wallets_or_accounts VALUES ('W_HASH_BTC_VAN', 'ENT_001', 'Crypto', 'BTC');")
+    
+    # Bulk Generation Loop: Seeds historical data directly into ledger storage
+    base_time = datetime.now() - timedelta(days=5)
+    bulk_inserts = []
+    for i in range(5):
+        tx_time = base_time + timedelta(days=i)
+        bulk_inserts.append(('W_HASH_BTC_VAN', 'DEPOSIT', 15.5000, 0.25, tx_time, 'SETTLED'))
+
+    insert_tx_query = """
+    INSERT INTO financial_ledger (wallet_hash, transaction_type, amount_delta, fee_charged, execution_timestamp, clearing_status)
+    VALUES (%s, %s, %s, %s, %s, %s);
     """
-    if not data_payload:
-        print("Data payload is empty. Halting operation to prevent database corruption.")
-        return
+    ledger_cursor.executemany(insert_tx_query, bulk_inserts)
+    ledger_conn.commit()
+    print("SUCCESS: Master reference profiles and historical entries seeded.")
 
-    try:
-        # Open connection to our active local Conda database vault
-        conn = psycopg2.connect(
-            host="localhost",
-            user="postgres",
-            password="",  # Blank to match our trusted local server setup
-            database="financial_ledger",
-            port="5432"
-        )
-        cursor = conn.cursor()
-
-        # Extract values like an accountant processing invoices
-        btc_usd = float(data_payload['bitcoin']['usd'])
-        eth_usd = float(data_payload['ethereum']['usd'])
-
-        # SQL commands to record this data into our Project 1 Ledger
-        insert_query = """
-        INSERT INTO ledger_transactions (account_id, amount_delta, currency_ticker) 
-        VALUES ('ACC_001', %s, %s);
-        """
-
-        # Execute inserts securely to prevent SQL injection hacks (Vital for Banks)
-        cursor.execute(insert_query, (btc_usd, 'BTC'))
-        cursor.execute(insert_query, (eth_usd, 'ETH'))
-        
-        # Commit saves the transactions permanently to the disk
-        conn.commit()
-        print(f"SUCCESS: Ingested Cloud Market Rates. BTC: ${btc_usd} | ETH: ${eth_usd}")
-
-        cursor.close()
-        conn.close()
-
-    except Exception as db_error:
-        print(f"OPERATIONAL EXCEPTION: Ledger database rejected transaction: {db_error}")
+    ledger_cursor.close()
+    ledger_conn.close()
 
 if __name__ == "__main__":
-    raw_data = fetch_live_crypto_metrics()
-    process_and_load_to_ledger(raw_data)
-
+    build_institutional_ledger()
